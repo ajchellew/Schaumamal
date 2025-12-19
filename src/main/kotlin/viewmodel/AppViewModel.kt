@@ -44,6 +44,9 @@ class AppViewModel(
     private val content = MutableStateFlow(Content.DefaultEmpty)
     private val settings = MutableStateFlow(Settings.DefaultEmpty)
 
+    val autoFitScreenshotResize
+        get() = settings.value.autoResizeScreenshot
+
     private val dumpsDirectoryName = content.map { it.dumpsDirectoryName }
     val resolvedDumpThumbnails =
         content.map { displayDataResolver.resolve(it.dumpsDirectoryName, it.dumps) }
@@ -185,6 +188,8 @@ class AppViewModel(
                     lastNickname = content.value.dumps.firstOrNull()?.nickname,
                     tempDirectoryName = content.value.tempDirectoryName,
                     dumpProgressHandler = dumpProgressHandler,
+                    tryRoot = settings.value.tryRoot,
+                    preDumpShellCommands = settings.value.preDumpShellCommands
                 )
 
             val newDump =
