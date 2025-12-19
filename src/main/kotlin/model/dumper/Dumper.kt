@@ -297,7 +297,7 @@ class Dumper(
         // This when statement partly contains duplicated code.
         val resolvedDisplays: List<ResolvedDisplay>? =
             when (api) {
-                35 -> {
+                35, 36 -> {
                     val flingerDisplays =
                         flingerOutput.extractAll(
                             pattern =
