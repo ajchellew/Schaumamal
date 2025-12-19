@@ -93,20 +93,31 @@ class Dumper(
 
                 dumpProgressHandler.reportPreDumpSetupFinished()
 
-                // Dump the UI
-                deviceShell
-                    .executeWithTimeout(
+                // Dump the UI. Timeout needs to be at least 10s as otherwise the
+                // idle timeout error will be hidden
+                // https://cs.android.com/android/platform/superproject/main/+/main:frameworks/base/cmds/uiautomator/cmds/uiautomator/src/com/android/commands/uiautomator/DumpCommand.java;l=91
+                val dumpCommandResult =
+                    deviceShell.executeWithTimeout(
                         command = "uiautomator dump --windows $remoteDumpFilePath",
-                        commandTimeout = shortTimeout,
+                        commandTimeout = 12.seconds, // 10s + a little spare
                         timeoutAction = {
                             return@withTimeoutOrNull DumpResult.Error(
                                 "XML Dump process took too long."
                             )
                         },
                     )
-                    .ifNonZeroExit {
-                        return@withTimeoutOrNull DumpResult.Error("XML Dump failed.")
-                    }
+
+                // if `uiautomator dump` fails because there is an animation blocking the device going idle
+                // the response "ERROR: could not get idle state." will return.
+                if (dumpCommandResult.stderr.trim().startsWith("ERROR:")) {
+                    var error = dumpCommandResult.stderr.trim()
+                    if (error == "ERROR: could not get idle state.")
+                        error = "Could not get idle state from uiautomator. Try disabling animations."
+
+                    return@withTimeoutOrNull DumpResult.Error(
+                        "XML Dump failed with error: $error"
+                    )
+                }
 
                 // Pull the dump file from the device
                 val dumpFileName = "dump_${hash()}.xml"
