@@ -79,8 +79,6 @@ fun ButtonLayer(
     buttonState: ButtonState,
     modifier: Modifier = Modifier,
 ) {
-    val density = LocalDensity.current.density
-
     val showDumpSuggestion by buttonState.showDumpSuggestion.collectAsState(initial = true)
     val dumpSuggestionText = buttonState.dumpSuggestionText
 
@@ -142,7 +140,7 @@ fun ButtonLayer(
         UpdateRoundIconButton()
 
         RoundIconButton(
-            onClick = { uiLayoutState.onFitScreenshotToScreenButtonPressed(density) },
+            onClick = { uiLayoutState.fitScreenshotToScreen(zoom = true) },
             enabled = areResizeButtonsEnabled,
             iconPainter = painterResource("icons/fit.svg"),
         )

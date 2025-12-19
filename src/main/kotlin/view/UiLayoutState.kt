@@ -29,7 +29,7 @@ import shared.Values.scrollZoomFactor
 import view.utils.toDp
 import view.utils.toPx
 
-class UiLayoutState(private val screenshotComposableSize: StateFlow<Size>) {
+class UiLayoutState(private val screenshotComposableSize: StateFlow<Size>, private val autoFitScreenshotOnResize: Boolean) {
 
     // panesHeightConstraint and panesWidthConstraint are, under the current implementation, also
     // the height and width
@@ -38,6 +38,8 @@ class UiLayoutState(private val screenshotComposableSize: StateFlow<Size>) {
     // as they are only used as limits in the wedge drag event handlers.
     private var panesHeightConstraint = Dp.Unspecified
     private var panesWidthConstraint = Dp.Unspecified
+
+    private val _density = MutableStateFlow(1f)
 
     private val _screenshotLayerOffset = MutableStateFlow(Offset.Zero)
     val screenshotLayerOffset
@@ -55,6 +57,10 @@ class UiLayoutState(private val screenshotComposableSize: StateFlow<Size>) {
     val upperPaneHeight
         get() = _upperPaneHeight.asStateFlow()
 
+    fun onDensityChanged(newDensity: Float) {
+        _density.value = newDensity
+    }
+
     fun onPanesHeightConstraintChanged(newHeightConstraint: Dp) {
         // First update the height constraint.
         panesHeightConstraint = newHeightConstraint
@@ -65,6 +71,7 @@ class UiLayoutState(private val screenshotComposableSize: StateFlow<Size>) {
                 max(minUpperPaneHeight, panesHeightConstraint - minimumPaneDimension)
             it.coerceIn(minUpperPaneHeight, maxUpperPaneHeight)
         }
+        fitScreenshotToScreen(zoom = autoFitScreenshotOnResize)
     }
 
     fun onPanesWidthConstraintChanged(newWidthConstraint: Dp) {
@@ -76,6 +83,7 @@ class UiLayoutState(private val screenshotComposableSize: StateFlow<Size>) {
             val maxPaneWidth = max(minPaneWidth, panesWidthConstraint - minimumPaneDimension)
             it.coerceIn(minPaneWidth, maxPaneWidth)
         }
+        fitScreenshotToScreen(zoom = autoFitScreenshotOnResize)
     }
 
     fun onVerticalWedgeDrag(change: PointerInputChange, dragAmount: Offset, density: Float) {
@@ -87,6 +95,7 @@ class UiLayoutState(private val screenshotComposableSize: StateFlow<Size>) {
             val maxPaneWidth = max(minPaneWidth, panesWidthConstraint - minimumPaneDimension)
             (it - dragAmountDp).coerceIn(minPaneWidth, maxPaneWidth)
         }
+        fitScreenshotToScreen(zoom = autoFitScreenshotOnResize)
     }
 
     fun onHorizontalWedgeDrag(change: PointerInputChange, dragAmount: Offset, density: Float) {
@@ -132,10 +141,8 @@ class UiLayoutState(private val screenshotComposableSize: StateFlow<Size>) {
         _screenshotLayerOffset.value -= pointerOffsetFromCenter * oldScale * (zoomFactor - 1f)
     }
 
-    // This is a method that is highly dependent on the specific arrangement of the UI components on
-    // the screen. It will
-    // likely break when the UI undergoes significant change.
-    fun onFitScreenshotToScreenButtonPressed(density: Float) {
+    fun fitScreenshotToScreen(zoom: Boolean) {
+        val density = _density.value
         val screenshotComposableSize = screenshotComposableSize
 
         // The following variables define the screenshot area (the area between the buttons and the
@@ -152,8 +159,8 @@ class UiLayoutState(private val screenshotComposableSize: StateFlow<Size>) {
         // The reference of this offset is the upper-left corner (x = 0, y = 0).
         val screenshotComposableGlobalOffsetAtCenter =
             Offset(
-                x = largePadding.toPx(density) + screenshotComposableSize.value.width / 2,
-                y = panesHeightConstraint.toPx(density) / 2,
+                x = screenshotComposableSize.value.width / 2f,
+                y = panesHeightConstraint.toPx(density) / 2f,
             )
 
         // The reference of this offset is the upper-left corner (x = 0, y = 0) as well.
@@ -172,26 +179,28 @@ class UiLayoutState(private val screenshotComposableSize: StateFlow<Size>) {
         _screenshotLayerOffset.value =
             targetGlobalOffsetAtCenter - screenshotComposableGlobalOffsetAtCenter
 
-        // Then we resize the screenshot to take up as much space as possible (the actual
-        // "fit-to-screen").
+        if (zoom) {
+            // Then we resize the screenshot to take up as much space as possible (the actual
+            // "fit-to-screen").
 
-        val targetHorizontalScale =
-            (endVisibleScreenshotAreaBound - startVisibleScreenshotAreaBound)
-                .toPx(density)
-                .div(screenshotComposableSize.value.width)
-        val targetVerticalScale =
-            (bottomVisibleScreenshotAreaBound - topVisibleScreenshotAreaBound)
-                .toPx(density)
-                .div(screenshotComposableSize.value.height)
+            val targetHorizontalScale =
+                (endVisibleScreenshotAreaBound - startVisibleScreenshotAreaBound)
+                    .toPx(density)
+                    .div(screenshotComposableSize.value.width)
+            val targetVerticalScale =
+                (bottomVisibleScreenshotAreaBound - topVisibleScreenshotAreaBound)
+                    .toPx(density)
+                    .div(screenshotComposableSize.value.height)
 
-        // We use this factor to leave some space between the screenshot and the other UI elements.
-        val convenienceFactor = 0.9f
+            // We use this factor to leave some space between the screenshot and the other UI elements.
+            val convenienceFactor = 0.9f
 
-        // We then use the most restrictive scale.
-        _screenshotLayerScale.value =
-            min(targetHorizontalScale, targetVerticalScale)
-                .times(convenienceFactor)
-                .coerceIn(minimumValue = minScreenshotScale, maximumValue = maxScreenshotScale)
+            // We then use the most restrictive scale.
+            _screenshotLayerScale.value =
+                min(targetHorizontalScale, targetVerticalScale)
+                    .times(convenienceFactor)
+                    .coerceIn(minimumValue = minScreenshotScale, maximumValue = maxScreenshotScale)
+        }
     }
 
     fun onEnlargeScreenshotButtonPressed() {

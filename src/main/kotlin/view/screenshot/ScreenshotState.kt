@@ -10,9 +10,11 @@ import java.io.FileInputStream
 import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
@@ -33,6 +35,9 @@ class ScreenshotState(
     private val displayData: StateFlow<DisplayData>,
     private val selectNode: (GenericNode) -> Unit,
 ) {
+    private val _screenshotUpdated = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val onScreenshotUpdated = _screenshotUpdated.asSharedFlow()
+
     val showScreenshot = inspectorState.map { it == InspectorState.POPULATED }
     val imageBitmap =
         displayData.map {
@@ -53,6 +58,7 @@ class ScreenshotState(
                     // Store the screenshot file size as soon as possible.
                     screenshotFileSize.value =
                         Size(height = height.toFloat(), width = width.toFloat())
+                    _screenshotUpdated.tryEmit(Unit)
                 }
             }
         } // Todo: this was using "derivedStateOf". Is the current implementation good?

@@ -53,6 +53,10 @@ import view.panes.PaneState
 import view.screenshot.ScreenshotState
 import viewmodel.AppViewModel
 
+// When the screenshot gets moved from application window or the pane resizes, to maintain the
+// original functionality it doesn't resize, its quite nice to auto size though.
+private const val AUTO_FIT_SCREENSHOT_RESIZE = false
+
 fun main() = application {
     KoinApplication(application = { modules(viewModelModule) }) {
         val viewModel: AppViewModel = koinInject()
@@ -91,11 +95,14 @@ fun main() = application {
                 isNodeSelected = viewModel.isNodeSelected,
                 selectedNode = viewModel.selectedNode,
                 displayData = viewModel.selectedDisplayData,
-                selectNode = viewModel::selectNode,
+                selectNode = viewModel::selectNode
             )
         }
         val uiLayoutState = remember {
-            UiLayoutState(screenshotComposableSize = screenshotState.screenshotComposableSize)
+            UiLayoutState(
+                screenshotComposableSize = screenshotState.screenshotComposableSize,
+                autoFitScreenshotOnResize = AUTO_FIT_SCREENSHOT_RESIZE
+            )
         }
         val notificationState =
             NotificationState(notifications = viewModel.notificationManager.notifications)
@@ -105,6 +112,11 @@ fun main() = application {
             buttonState.isExtractButtonEnabled.collectAsState(initial = true)
         val areResizeButtonsEnabled by
             buttonState.areResizeButtonsEnabled.collectAsState(initial = false)
+
+        LaunchedEffect(Unit) {
+            screenshotState.onScreenshotUpdated.collect { uiLayoutState.fitScreenshotToScreen(zoom = AUTO_FIT_SCREENSHOT_RESIZE) }
+        }
+        LaunchedEffect(density) { uiLayoutState.onDensityChanged(density) }
 
         IntUiTheme(
             theme = JewelTheme.darkThemeDefinition(),
@@ -139,9 +151,7 @@ fun main() = application {
                             uiLayoutState::onEnlargeScreenshotButtonPressed,
                         onShrinkScreenshotButtonPressed =
                             uiLayoutState::onShrinkScreenshotButtonPressed,
-                        onFitScreenshotToScreenButtonPressed = {
-                            uiLayoutState.onFitScreenshotToScreenButtonPressed(density)
-                        },
+                        onFitScreenshotToScreenButtonPressed = { uiLayoutState.fitScreenshotToScreen(zoom = true) },
                     )
                 },
             ) {
