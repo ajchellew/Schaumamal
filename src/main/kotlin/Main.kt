@@ -53,9 +53,6 @@ import view.panes.PaneState
 import view.screenshot.ScreenshotState
 import viewmodel.AppViewModel
 
-// When the screenshot gets moved from application window or the pane resizes, to maintain the
-// original functionality it doesn't resize, its quite nice to auto size though.
-private const val AUTO_FIT_SCREENSHOT_RESIZE = false
 
 fun main() = application {
     KoinApplication(application = { modules(viewModelModule) }) {
@@ -101,7 +98,7 @@ fun main() = application {
         val uiLayoutState = remember {
             UiLayoutState(
                 screenshotComposableSize = screenshotState.screenshotComposableSize,
-                autoFitScreenshotOnResize = AUTO_FIT_SCREENSHOT_RESIZE
+                autoFitScreenshotOnResize = viewModel.autoFitScreenshotResize
             )
         }
         val notificationState =
@@ -114,7 +111,7 @@ fun main() = application {
             buttonState.areResizeButtonsEnabled.collectAsState(initial = false)
 
         LaunchedEffect(Unit) {
-            screenshotState.onScreenshotUpdated.collect { uiLayoutState.fitScreenshotToScreen(zoom = AUTO_FIT_SCREENSHOT_RESIZE) }
+            screenshotState.onScreenshotUpdated.collect { uiLayoutState.fitScreenshotToScreen(zoom = viewModel.autoFitScreenshotResize) }
         }
         LaunchedEffect(density) { uiLayoutState.onDensityChanged(density) }
 

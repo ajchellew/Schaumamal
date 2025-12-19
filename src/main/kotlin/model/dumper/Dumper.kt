@@ -51,6 +51,8 @@ class Dumper(
         lastNickname: String?,
         tempDirectoryName: String,
         dumpProgressHandler: DumpProgressHandler,
+        tryRoot: Boolean,
+        preDumpShellCommands: List<String>?
     ): DumpResult =
         withContext(Dispatchers.IO) {
             withTimeoutOrNull(dumpTimeout) {
@@ -79,12 +81,24 @@ class Dumper(
                         adbSession.connectedDevicesTracker.waitForAnyDevice()
                     } ?: return@withTimeoutOrNull DumpResult.Error("No device connected.")
 
-                // Attempt to root device
-                withTimeoutOrNull(shortTimeout) { device.rootAndWait() }
-                    ?: return@withTimeoutOrNull DumpResult.Error("Root process took too long.")
+                // Attempt to root device, (or don't might save some time)
+                if (tryRoot) {
+                    withTimeoutOrNull(shortTimeout) { device.rootAndWait() }
+                        ?: return@withTimeoutOrNull DumpResult.Error("Root process took too long.")
+                }
 
                 val deviceShell = device.shell
                 val deviceFileSystem = device.fileSystem
+
+                preDumpShellCommands?.let {
+                    for (shellCommand in preDumpShellCommands) {
+                        // TODO it would be nice to toast or at least log these running
+                        //  as at some point the user will forget about custom config.
+                        deviceShell.executeAsText(
+                            command = shellCommand
+                        )
+                    }
+                }
 
                 // Make sure that the temporary directory exists and clear its contents
                 val tempDirectoryPath = appDirectoryPath.resolve(tempDirectoryName)
